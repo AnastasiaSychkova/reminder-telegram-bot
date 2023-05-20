@@ -1,6 +1,7 @@
 package pro.sky.telegrambot.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -15,6 +16,7 @@ import pro.sky.telegrambot.repository.NotificationTaskRepository;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -42,6 +44,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
+        log.info("Was invoked method for onUpdateReceived");
         if (update.hasMessage() && update.getMessage().hasText()) {
             log.info("onUpdateReceived");
             String massageText = update.getMessage().getText();
@@ -56,13 +59,14 @@ public class TelegramBot extends TelegramLongPollingBot {
                 LocalDateTime dateTime = LocalDateTime.parse(dateTimeString, dateTimeFormatter);
                 NotificationTask notificationTask = new NotificationTask(chatId, notificationText, dateTime);
                 notificationTaskRepository.save(notificationTask);
+                sendMassage(chatId, "Reminder added!");
             } else {
                 switch (massageText) {
                     case "/start":
                         startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
                         break;
                     case "/instruction":
-                        sendMassage(chatId, "Enter the task in the format: dd.mm.yyyy hh:mm notification task");
+                        sendMassage(chatId, "Enter the task in the format: (date)dd.mm.yyyy (time)hh:mm notification task. If you entered everything correctly, you will receive a message that a reminder has been added");
                         break;
                     default:
                         sendMassage(chatId, "Sorry, command was not recognized");
@@ -73,11 +77,13 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotToken() {
+        log.info("Was invoked method for getBotToken");
         return telegramBotConfig.getToken();
     }
 
     @Override
     public String getBotUsername() {
+        log.info("Was invoked method for getBotUsername");
         return telegramBotConfig.getBotName();
     }
 
@@ -98,5 +104,21 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             log.error("Error occurred: " + e.getMessage());
         }
+    }
+
+    @Scheduled(cron = "0 0/1 * * * *")
+    public void checker() {
+        log.info("Was invoked method for checker");
+        List<NotificationTask> currentNotifications = notificationTaskRepository.findNotificationTaskByDateTimeEquals(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES));
+        sendNotify(currentNotifications);
+    }
+
+    public void sendNotify(List<NotificationTask> currentNotifications) {
+        currentNotifications.forEach(notificationTask -> {
+            if (notificationTask == null) {
+            } else {
+                sendMassage(notificationTask.getChatId(), notificationTask.getNotification());
+            }
+        });
     }
 }
