@@ -12,7 +12,6 @@ import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScope
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import pro.sky.telegrambot.config.TelegramBotConfig;
 import pro.sky.telegrambot.model.NotificationTask;
-import pro.sky.telegrambot.repository.NotificationTaskRepository;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,11 +24,11 @@ import java.util.regex.Pattern;
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
-    private NotificationTaskRepository notificationTaskRepository;
-    final TelegramBotConfig telegramBotConfig;
+    private NotificationService notificationService;
+    private final TelegramBotConfig telegramBotConfig;
     private Pattern pattern = Pattern.compile("(\\d{2}\\.\\d{2}\\.\\d{4} \\d{2}:\\d{2}) (.+)");
 
-    public TelegramBot(TelegramBotConfig telegramBotConfig, NotificationTaskRepository notificationTaskRepository) {
+    public TelegramBot(TelegramBotConfig telegramBotConfig, NotificationService notificationService) {
         this.telegramBotConfig = telegramBotConfig;
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand("/start", "get a welcome massage"));
@@ -39,7 +38,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             log.error("Error settings bot's commandlist: " + e.getMessage());
         }
-        this.notificationTaskRepository = notificationTaskRepository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -58,7 +57,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
                 LocalDateTime dateTime = LocalDateTime.parse(dateTimeString, dateTimeFormatter);
                 NotificationTask notificationTask = new NotificationTask(chatId, notificationText, dateTime);
-                notificationTaskRepository.save(notificationTask);
+                notificationService.save(notificationTask);
                 sendMassage(chatId, "Reminder added!");
             } else {
                 switch (massageText) {
@@ -109,7 +108,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Scheduled(cron = "0 0/1 * * * *")
     public void checker() {
         log.info("Was invoked method for checker");
-        List<NotificationTask> currentNotifications = notificationTaskRepository.findNotificationTaskByDateTimeEquals(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES));
+        List<NotificationTask> currentNotifications = notificationService.findNotificationTaskByDateTimeEquals(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES));
         sendNotify(currentNotifications);
     }
 
