@@ -11,7 +11,7 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 @Slf4j
 @Component
 public class TelegramBotInitializer {
-    final TelegramBot telegramBot;
+    private final TelegramBot telegramBot;
 
     public TelegramBotInitializer(TelegramBot telegramBot) {
         this.telegramBot = telegramBot;
